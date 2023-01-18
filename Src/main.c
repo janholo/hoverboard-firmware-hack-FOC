@@ -125,7 +125,7 @@ typedef struct{
   int16_t   speedL_meas;
   int16_t   batVoltage;
   int16_t   boardTemp;
-  uint16_t  cmdLed;
+  int16_t  cmdLed;
   uint16_t  checksum;
 } SerialFeedback;
 static SerialFeedback Feedback;
@@ -327,9 +327,7 @@ int main(void) {
       if (inIdx == CONTROL_ADC) {               // Only use use implementation below if pedals are in use (ADC input)
 
         #ifdef MULTI_MODE_DRIVE
-        if (speed >= max_speed) {
-          speed = max_speed;
-        }
+        speed = ((int32_t)speed * max_speed) >> 10;
         #endif
 
         if (!MultipleTapBrake.b_multipleTap) {  // Check driving direction
@@ -510,16 +508,17 @@ int main(void) {
     #if defined(FEEDBACK_SERIAL_USART2) || defined(FEEDBACK_SERIAL_USART3)
       if (main_loop_counter % 2 == 0) {    // Send data periodically every 10 ms
         Feedback.start	        = (uint16_t)SERIAL_START_FRAME;
-        Feedback.cmd1           = (int16_t)input1[inIdx].cmd;
+        Feedback.cmd1           = (int16_t)drive_mode + 1;
         Feedback.cmd2           = (int16_t)input2[inIdx].cmd;
         Feedback.speedR_meas	  = (int16_t)rtY_Right.n_mot;
         Feedback.speedL_meas	  = (int16_t)rtY_Left.n_mot;
         Feedback.batVoltage	    = (int16_t)batVoltageCalib;
         Feedback.boardTemp	    = (int16_t)board_temp_deg_c;
+        Feedback.cmdLed         = (int16_t)dc_curr;
 
         #if defined(FEEDBACK_SERIAL_USART2)
           if(__HAL_DMA_GET_COUNTER(huart2.hdmatx) == 0) {
-            Feedback.cmdLed     = (uint16_t)sideboard_leds_L;
+            // Feedback.cmdLed     = (uint16_t)sideboard_leds_L;
             Feedback.checksum   = (uint16_t)(Feedback.start ^ Feedback.cmd1 ^ Feedback.cmd2 ^ Feedback.speedR_meas ^ Feedback.speedL_meas 
                                            ^ Feedback.batVoltage ^ Feedback.boardTemp ^ Feedback.cmdLed);
 
@@ -528,7 +527,7 @@ int main(void) {
         #endif
         #if defined(FEEDBACK_SERIAL_USART3)
           if(__HAL_DMA_GET_COUNTER(huart3.hdmatx) == 0) {
-            Feedback.cmdLed     = (uint16_t)sideboard_leds_R;
+            // Feedback.cmdLed     = (uint16_t)sideboard_leds_R;
             Feedback.checksum   = (uint16_t)(Feedback.start ^ Feedback.cmd1 ^ Feedback.cmd2 ^ Feedback.speedR_meas ^ Feedback.speedL_meas 
                                            ^ Feedback.batVoltage ^ Feedback.boardTemp ^ Feedback.cmdLed);
 
